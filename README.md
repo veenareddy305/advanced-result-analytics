@@ -40,6 +40,8 @@ The system enables faculty to process CSV data, view filtered dashboards, analyz
 * Works on mobile and desktop (Bootstrap)
 
 
+
+
 ## 🛠 Tech Stack
 
 * **Backend:** Django
@@ -48,7 +50,9 @@ The system enables faculty to process CSV data, view filtered dashboards, analyz
 * **Charts:** Chart.js
 * **Export:** CSV / WeasyPrint (PDF)
 
----
+
+
+
 
 ## Project Structure
 
@@ -64,6 +68,8 @@ result_analytics/
 
 
 
+
+
 ## CO Mapping
 
 | CO  | Description                             |
@@ -76,12 +82,17 @@ result_analytics/
 
 
 
+
+
 ## SDG Justification
 
 This project supports **SDG 4: Quality Education** by enabling data-driven academic insights.
 Faculty can identify underperforming students and subjects through dashboards.
 
 It also supports **SDG 16: Transparency** by providing exportable reports for institutional decision-making.
+
+
+
 
 
 
@@ -95,12 +106,18 @@ It also supports **SDG 16: Transparency** by providing exportable reports for in
 ```
 
 
+
+
+
 ## ▶️ How to Run
 
 ```bash
 pip install -r requirements.txt
 python manage.py runserver
 ```
+
+
+
 
 
 ## ✅ Verification Checklist
