@@ -40,7 +40,7 @@ The system enables faculty to process CSV data, view filtered dashboards, analyz
 * Works on mobile and desktop (Bootstrap)
 
 
-
+---
 
 ## 🛠 Tech Stack
 
