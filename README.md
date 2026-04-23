@@ -51,7 +51,7 @@ The system enables faculty to process CSV data, view filtered dashboards, analyz
 * **Export:** CSV / WeasyPrint (PDF)
 
 
-
+---
 
 
 ## Project Structure
@@ -67,7 +67,7 @@ result_analytics/
 ```
 
 
-
+---
 
 
 ## CO Mapping
@@ -81,7 +81,7 @@ result_analytics/
 | CO5 | Data visualization (charts)             |
 
 
-
+---
 
 
 ## SDG Justification
@@ -92,7 +92,7 @@ Faculty can identify underperforming students and subjects through dashboards.
 It also supports **SDG 16: Transparency** by providing exportable reports for institutional decision-making.
 
 
-
+---
 
 
 
@@ -106,7 +106,7 @@ It also supports **SDG 16: Transparency** by providing exportable reports for in
 ```
 
 
-
+---
 
 
 ## ▶️ How to Run
@@ -117,7 +117,7 @@ python manage.py runserver
 ```
 
 
-
+---
 
 
 ## ✅ Verification Checklist
