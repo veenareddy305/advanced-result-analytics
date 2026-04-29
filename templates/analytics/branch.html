@@ -1,0 +1,242 @@
+{% extends 'base.html' %}
+{% block content %}
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+<style>
+.page-title{
+    font-size:28px;
+    font-weight:700;
+    margin-bottom:20px;
+}
+
+.filters{
+    display:flex;
+    gap:12px;
+    margin-bottom:25px;
+}
+
+.filters select{
+    padding:10px 14px;
+    border-radius:10px;
+    border:none;
+    background:#1e293b;
+    color:white;
+    font-weight:500;
+}
+
+.filters button{
+    background:#2563eb;
+    color:white;
+    border:none;
+    padding:10px 16px;
+    border-radius:10px;
+    font-weight:500;
+    cursor:pointer;
+}
+
+.grid-2{
+    display:grid;
+    grid-template-columns:1fr 1fr;
+    gap:15px;
+}
+
+.chart-box{
+    background:#0f172a;
+    padding:15px;
+    border-radius:14px;
+    border:1px solid rgba(255,255,255,0.05);
+    overflow:hidden;
+}
+
+.chart-box h3{
+    font-size:15px;
+    font-weight:600;
+    margin-bottom:10px;
+}
+
+.table-box{
+    margin-top:15px;
+    background:#0f172a;
+    padding:15px;
+    border-radius:12px;
+}
+
+table{
+    width:100%;
+    border-collapse:collapse;
+}
+
+th, td{
+    padding:10px;
+}
+
+th{
+    color:#94a3b8;
+}
+
+tr{
+    border-bottom:1px solid #1e293b;
+}
+
+canvas{
+    height:300px !important;
+    max-width:100% !important;
+}
+</style>
+
+<div class="page-title">📊 Branch Analysis</div>
+
+<!-- 🔥 FIXED BUTTON -->
+<div style="display:flex; justify-content:flex-end; margin-bottom:15px;">
+    <button class="btn" onclick="downloadExcelWithCharts()">
+        Download Report
+    </button>
+</div>
+
+<form method="GET" class="filters">
+<select name="year">
+<option value="">All Years</option>
+{% for y in years %}
+<option value="{{ y }}" {% if request.GET.year == y|stringformat:"s" %}selected{% endif %}>{{ y }}</option>
+{% endfor %}
+</select>
+
+<select name="sem">
+<option value="">All Sem</option>
+{% for s in sems %}
+<option value="{{ s }}" {% if request.GET.sem == s|stringformat:"s" %}selected{% endif %}>Sem {{ s }}</option>
+{% endfor %}
+</select>
+
+<button>Apply</button>
+</form>
+
+<div class="grid-2">
+
+<div class="chart-box">
+<h3>Enrollment per Branch</h3>
+<canvas id="distChart"></canvas>
+</div>
+
+<div class="chart-box">
+<h3>Branch Performance</h3>
+<canvas id="radarChart"></canvas>
+</div>
+
+<div class="chart-box">
+<h3>Pass vs Fail</h3>
+<canvas id="pfChart"></canvas>
+</div>
+
+<div class="chart-box">
+<h3>Top Performers</h3>
+<canvas id="topChart"></canvas>
+</div>
+
+</div>
+
+<div class="table-box">
+<h3>Detailed Branch Statistics</h3>
+
+<table>
+<tr>
+<th>Branch</th>
+<th>Students</th>
+<th>Avg</th>
+<th>Pass %</th>
+<th>Backlogs</th>
+<th>Distinction</th>
+<th>Topper</th>
+</tr>
+
+{% for row in table %}
+<tr>
+<td>{{ row.branch }}</td>
+<td>{{ row.students }}</td>
+<td>{{ row.avg }}</td>
+<td>{{ row.pass_rate }}%</td>
+<td>{{ row.backlog }}</td>
+<td>{{ row.distinction }}</td>
+<td>{{ row.topper }}</td>
+</tr>
+{% endfor %}
+</table>
+</div>
+
+<!-- DATA -->
+<script id="labels" type="application/json">{{ labels|safe }}</script>
+<script id="counts" type="application/json">{{ counts|safe }}</script>
+<script id="pass_rates" type="application/json">{{ pass_rates|safe }}</script>
+<script id="avg_scores" type="application/json">{{ avg_scores|safe }}</script>
+<script id="pf_pass" type="application/json">{{ pf_pass|safe }}</script>
+<script id="pf_fail" type="application/json">{{ pf_fail|safe }}</script>
+<script id="top_labels" type="application/json">{{ top_labels|safe }}</script>
+<script id="top_marks" type="application/json">{{ top_marks|safe }}</script>
+
+<!-- 🔥 CHART SCRIPT -->
+<script>
+function get(id){
+    return JSON.parse(document.getElementById(id).textContent);
+}
+
+const labels = get("labels");
+const counts = get("counts");
+const passRates = get("pass_rates");
+const avgScores = get("avg_scores");
+const pfPass = get("pf_pass");
+const pfFail = get("pf_fail");
+const topLabels = get("top_labels");
+const topMarks = get("top_marks");
+
+new Chart(distChart,{type:'doughnut',data:{labels:labels,datasets:[{data:counts}]}});
+
+new Chart(radarChart,{
+type:'radar',
+data:{
+labels:labels,
+datasets:[
+{label:'Pass %',data:passRates,borderColor:'#38bdf8',backgroundColor:'rgba(56,189,248,0.25)'},
+{label:'Avg Marks',data:avgScores,borderColor:'#fb7185',backgroundColor:'rgba(251,113,133,0.25)'}
+]}
+});
+
+new Chart(pfChart,{
+type:'bar',
+data:{labels:labels,datasets:[{label:'Pass',data:pfPass},{label:'Fail',data:pfFail}]}
+});
+
+new Chart(topChart,{
+type:'bar',
+data:{labels:topLabels,datasets:[{label:'Top Marks',data:topMarks}]}
+});
+</script>
+
+<!-- 🔥 DOWNLOAD SCRIPT (SEPARATE) -->
+<script>
+function downloadExcelWithCharts(){
+
+const canvases = document.querySelectorAll("canvas");
+let images = [];
+
+canvases.forEach(c => images.push(c.toDataURL("image/png")));
+
+fetch("/download-report-excel/",{
+method:"POST",
+headers:{
+"Content-Type":"application/json",
+"X-CSRFToken":"{{ csrf_token }}"
+},
+body:JSON.stringify({images:images})
+})
+.then(res=>res.blob())
+.then(blob=>{
+const link=document.createElement("a");
+link.href=URL.createObjectURL(blob);
+link.download="branch_analysis.xlsx";
+link.click();
+});
+}
+</script>
+
+{% endblock %}

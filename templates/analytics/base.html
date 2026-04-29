@@ -1,0 +1,19 @@
+{% extends 'base.html' %}
+{% block content %}
+
+<h2>Class</h2>
+<canvas id="cl"></canvas>
+
+<script>
+const data = JSON.parse('{{data|escapejs}}');
+
+new Chart(document.getElementById('cl'), {
+type:'bar',
+data:{
+labels:data.map(x=>x.student__section),
+datasets:[{data:data.map(x=>x.avg)}]
+}
+});
+</script>
+
+{% endblock %}

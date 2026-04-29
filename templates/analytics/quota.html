@@ -1,0 +1,252 @@
+{% extends 'base.html' %}
+{% block content %}
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+<style>
+body{background:#020817;color:#e2e8f0;}
+
+h2{margin-bottom:15px;}
+
+form{
+    display:flex;
+    gap:10px;
+    margin-bottom:20px;
+}
+
+input,select,button{
+    padding:8px;
+    border-radius:6px;
+    border:none;
+    background:#1e293b;
+    color:white;
+}
+
+button{background:#2563eb;}
+
+.grid-2{
+    display:grid;
+    grid-template-columns:1fr 1fr;
+    gap:20px;
+}
+
+.chart-box{
+    background:#0f172a;
+    padding:15px;
+    border-radius:10px;
+}
+
+.chart-desc{
+    margin-top:10px;
+    font-size:13px;
+    color:#94a3b8;
+}
+
+table{
+    width:100%;
+    margin-top:20px;
+    border-collapse:collapse;
+    background:#0f172a;
+}
+
+th,td{padding:8px;}
+th{color:#94a3b8;}
+tr{border-bottom:1px solid #1e293b;}
+</style>
+
+<h2>🎯 Admission Quota Analysis</h2>
+<div style="display:flex; justify-content:flex-end; margin-bottom:15px;">
+        <a href="/download-report/?type=quota&year={{request.GET.year}}&sem={{request.GET.sem}}">
+        <button class="btn">Download Report</button>
+    </a>
+</div>
+<!-- ✅ ONLY THIS PART CHANGED -->
+<form method="GET">
+
+<select name="year">
+    <option value="">All Years</option>
+    {% for y in years %}
+        <option value="{{ y }}" {% if request.GET.year == y|stringformat:"s" %}selected{% endif %}>
+            {{ y }}
+        </option>
+    {% endfor %}
+</select>
+
+<select name="sem">
+    <option value="">All Sem</option>
+    {% for s in sems %}
+        <option value="{{ s }}" {% if request.GET.sem == s|stringformat:"s" %}selected{% endif %}>
+            Sem {{ s }}
+        </option>
+    {% endfor %}
+</select>
+
+<select name="branch">
+    <option value="">All Branch</option>
+    {% for b in branches %}
+    <option value="{{ b }}">{{ b }}</option>
+    {% endfor %}
+</select>
+
+<select name="subject">
+    <option value="">All Subjects</option>
+    {% for s in subjects %}
+    <option value="{{ s }}">{{ s }}</option>
+    {% endfor %}
+</select>
+
+<button>Apply</button>
+
+</form>
+
+<div class="grid-2">
+
+<!-- DISTRIBUTION -->
+<div class="chart-box">
+    <h3>👥 Quota Distribution</h3>
+    <canvas id="distChart"></canvas>
+    <p class="chart-desc">
+        Shows number of students admitted through each quota.
+        Helps understand intake composition.
+    </p>
+</div>
+
+<!-- PERFORMANCE -->
+<div class="chart-box">
+    <h3>📈 Average Performance by Quota</h3>
+    <canvas id="avgChart"></canvas>
+    <p class="chart-desc">
+        Displays average marks for each quota category.
+        Helps compare academic performance.
+    </p>
+</div>
+
+</div>
+
+<div class="chart-box" style="margin-top:20px;">
+    <h3>⚖️ Pass vs Backlog %</h3>
+    <canvas id="passChart"></canvas>
+    <p class="chart-desc">
+        Compares pass percentage and backlog percentage across quotas.
+        Helps identify which quota group faces more academic difficulty.
+    </p>
+</div>
+
+<h3>Quota Summary</h3>
+
+<table>
+<tr>
+<th>Quota</th>
+<th>Students</th>
+<th>Avg</th>
+<th>Pass %</th>
+<th>Backlog %</th>
+<th>Distinction</th>
+</tr>
+
+{% for r in table %}
+<tr>
+<td>{{ r.quota }}</td>
+<td>{{ r.students }}</td>
+<td>{{ r.avg }}</td>
+<td>{{ r.pass_rate }}</td>
+<td>{{ r.backlog }}</td>
+<td>{{ r.distinction }}</td>
+</tr>
+{% endfor %}
+</table>
+
+<h3>Students</h3>
+
+<table>
+<tr>
+<th>USN</th>
+<th>Name</th>
+<th>Branch</th>
+<th>Category</th>
+<th>Quota</th>
+<th>Avg</th>
+</tr>
+
+{% for s in students %}
+<tr>
+<td>{{ s.student__usn }}</td>
+<td>{{ s.student__name }}</td>
+<td>{{ s.student__branch }}</td>
+<td>{{ s.student__actual_category }}</td>
+<td>{{ s.student__admission_quota }}</td>
+<td>{{ s.avg|floatformat:1 }}</td>
+</tr>
+{% endfor %}
+</table>
+
+<!-- DATA -->
+<script id="q_labels" type="application/json">{{ q_labels|safe }}</script>
+<script id="q_counts" type="application/json">{{ q_counts|safe }}</script>
+<script id="avg_scores" type="application/json">{{ avg_scores|safe }}</script>
+<script id="pass_rates" type="application/json">{{ pass_rates|safe }}</script>
+<script id="backlog_rates" type="application/json">{{ backlog_rates|safe }}</script>
+
+<script>
+function get(id){
+    return JSON.parse(document.getElementById(id).textContent || "[]");
+}
+
+function getOptions(title, xLabel, yLabel){
+    return {
+        responsive:true,
+        plugins:{title:{display:true,text:title}},
+        scales:{
+            x:{title:{display:true,text:xLabel}},
+            y:{beginAtZero:true,title:{display:true,text:yLabel}}
+        }
+    };
+}
+
+new Chart(distChart,{
+    type:'pie',
+    data:{
+        labels:get('q_labels'),
+        datasets:[{
+            label:'Students',
+            data:get('q_counts'),
+            backgroundColor:['#3b82f6','#10b981','#f59e0b','#ef4444','#8b5cf6']
+        }]
+    }
+});
+
+new Chart(avgChart,{
+    type:'bar',
+    data:{
+        labels:get('q_labels'),
+        datasets:[{
+            label:'Average Marks',
+            data:get('avg_scores'),
+            backgroundColor:'#10b981'
+        }]
+    },
+    options:getOptions('Average Performance by Quota','Quota','Marks')
+});
+
+new Chart(passChart,{
+    type:'bar',
+    data:{
+        labels:get('q_labels'),
+        datasets:[
+            {
+                label:'Pass %',
+                data:get('pass_rates'),
+                backgroundColor:'#3b82f6'
+            },
+            {
+                label:'Backlog %',
+                data:get('backlog_rates'),
+                backgroundColor:'#ef4444'
+            }
+        ]
+    },
+    options:getOptions('Pass vs Backlog','Quota','Percentage')
+});
+</script>
+
+{% endblock %}

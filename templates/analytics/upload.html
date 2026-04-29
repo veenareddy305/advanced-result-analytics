@@ -1,0 +1,183 @@
+{% extends 'base.html' %}
+{% block content %}
+
+<style>
+
+/* ===== PAGE ===== */
+.page-title{
+    font-size:28px;
+    font-weight:700;
+    margin-bottom:8px;
+}
+
+.subtitle{
+    color:#64748b;
+    margin-bottom:25px;
+}
+
+/* ===== CARD ===== */
+.upload-card{
+    background:white;
+    padding:25px;
+    border-radius:16px;
+    box-shadow:0 4px 12px rgba(0,0,0,0.06);
+    max-width:500px;
+}
+
+/* ===== DROP AREA ===== */
+.upload-area{
+    border:2px dashed #cbd5e1;
+    border-radius:12px;
+    padding:40px;
+    text-align:center;
+    cursor:pointer;
+    transition:0.2s;
+}
+
+.upload-area:hover{
+    border-color:#2563eb;
+    background:#f8fafc;
+}
+
+.upload-area.drag{
+    border-color:#10b981;
+    background:#ecfdf5;
+}
+
+.upload-icon{
+    font-size:40px;
+    margin-bottom:10px;
+}
+
+/* ===== FILE NAME ===== */
+.file-name{
+    margin-top:12px;
+    font-weight:500;
+    color:#2563eb;
+}
+
+/* ===== BUTTON ===== */
+.btn-upload{
+    margin-top:20px;
+    padding:10px 16px;
+    border:none;
+    border-radius:8px;
+    background:#2563eb;
+    color:white;
+    cursor:pointer;
+}
+
+/* ===== RESULT BOX ===== */
+.result-box{
+    margin-top:30px;
+    background:white;
+    padding:15px;
+    border-radius:12px;
+    box-shadow:0 4px 10px rgba(0,0,0,0.05);
+}
+
+.success{color:#16a34a;font-weight:600;}
+.fail{color:#dc2626;font-weight:600;}
+
+.error-list{
+    margin-top:10px;
+    max-height:200px;
+    overflow:auto;
+    font-size:14px;
+    color:#f59e0b;
+}
+
+</style>
+
+<div class="page-title">📂 Upload Student Data</div>
+<div class="subtitle">Upload CSV or Excel file (invalid rows will be flagged)</div>
+
+<div class="upload-card">
+
+<form method="POST" enctype="multipart/form-data" id="uploadForm">
+    {% csrf_token %}
+
+    <!-- HIDDEN INPUT -->
+    <input type="file" name="file" id="fileInput" hidden required>
+
+    <!-- DROP AREA -->
+    <div class="upload-area" id="dropArea">
+        <div class="upload-icon">📁</div>
+        <p><b>Click to upload</b> or drag & drop</p>
+        <p style="color:#64748b;">CSV / Excel supported</p>
+    </div>
+
+    <!-- FILE NAME -->
+    <div id="fileName" class="file-name">No file selected</div>
+
+    <button type="submit" class="btn-upload">Upload File</button>
+
+</form>
+
+</div>
+
+<!-- ===== RESULT ===== -->
+
+{% if accepted or rejected %}
+<div class="result-box">
+
+    {% if accepted %}
+        <p class="success">✔ Accepted Rows: {{ accepted }}</p>
+    {% endif %}
+
+    {% if rejected %}
+        <p class="fail">❌ Rejected Rows: {{ rejected }}</p>
+    {% endif %}
+
+    {% if errors %}
+        <div class="error-list">
+            {% for e in errors %}
+                <div>{{ e }}</div>
+            {% endfor %}
+        </div>
+    {% endif %}
+
+</div>
+{% endif %}
+
+<!-- ===== SCRIPT ===== -->
+<script>
+
+const fileInput = document.getElementById('fileInput');
+const fileName = document.getElementById('fileName');
+const dropArea = document.getElementById('dropArea');
+
+/* CLICK */
+dropArea.addEventListener('click', () => fileInput.click());
+
+/* FILE SELECT */
+fileInput.addEventListener('change', () => {
+    if(fileInput.files.length > 0){
+        fileName.textContent = "📄 " + fileInput.files[0].name;
+    }
+});
+
+/* DRAG DROP */
+dropArea.addEventListener('dragover', e => {
+    e.preventDefault();
+    dropArea.classList.add('drag');
+});
+
+dropArea.addEventListener('dragleave', () => {
+    dropArea.classList.remove('drag');
+});
+
+dropArea.addEventListener('drop', e => {
+    e.preventDefault();
+    dropArea.classList.remove('drag');
+
+    fileInput.files = e.dataTransfer.files;
+
+    if(fileInput.files.length > 0){
+        fileName.textContent = "📄 " + fileInput.files[0].name;
+    }
+});
+
+</script>
+
+{% endblock %}

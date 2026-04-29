@@ -1,0 +1,228 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>Advanced Result Analytics Suite!</title>
+
+    <!-- Chart.js -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+    <!-- FONT -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+
+    <style>
+    *{
+        margin:0;
+        padding:0;
+        box-sizing:border-box;
+        font-family:'Inter',sans-serif;
+    }
+
+    body{
+        display:flex;
+        background:#020617;
+        color:#e2e8f0;
+    }
+
+    /* SIDEBAR */
+    .sidebar{
+        width:240px;
+        height:100vh;
+        background:#0f172a;
+        padding:20px;
+        position:fixed;
+        border-right:1px solid #1e293b;
+    }
+
+    .logo{
+        font-size:20px;
+        font-weight:600;
+        margin-bottom:30px;
+        color:#60a5fa;
+    }
+
+    .nav a{
+        display:block;
+        padding:10px 12px;
+        margin-bottom:10px;
+        border-radius:8px;
+        text-decoration:none;
+        color:#94a3b8;
+        transition:0.2s;
+    }
+
+    .nav a:hover{
+        background:#1e293b;
+        color:white;
+    }
+
+    /* MAIN */
+    .main{
+        margin-left:240px;
+        width:100%;
+        padding:25px;
+    }
+
+    .topbar{
+        display:flex;
+        justify-content:space-between;
+        align-items:center;
+        margin-bottom:20px;
+    }
+
+    .title{
+        font-size:24px;
+        font-weight:600;
+    }
+
+    .btn{
+        background:#10b981;
+        padding:8px 14px;
+        border-radius:8px;
+        border:none;
+        color:white;
+    }
+
+    /* FILTER */
+    .filters{
+        display:flex;
+        gap:10px;
+        margin-bottom:20px;
+    }
+
+    .filters input, .filters select{
+        background:#1e293b;
+        border:none;
+        padding:8px;
+        border-radius:6px;
+        color:white;
+    }
+
+    .filters button{
+        background:#2563eb;
+        border:none;
+        padding:8px 14px;
+        border-radius:6px;
+        color:white;
+    }
+
+    /* KPI */
+    .kpi{
+        display:grid;
+        grid-template-columns:repeat(4,1fr);
+        gap:20px;
+        margin-bottom:20px;
+    }
+
+    .card{
+        background:#0f172a;
+        border:1px solid #1e293b;
+        border-radius:14px;
+        padding:18px;
+    }
+
+    .card h4{
+        font-size:13px;
+        color:#94a3b8;
+    }
+
+    .card h2{
+        font-size:28px;
+        margin-top:5px;
+    }
+
+    /* GRID */
+    .grid-2{
+        display:grid;
+        grid-template-columns:1fr 1fr;
+        gap:20px;
+    }
+
+    .chart-box{
+        background: linear-gradient(145deg,#0f172a,#020617);
+        border:1px solid rgba(255,255,255,0.05);
+        border-radius:16px;
+        padding:18px;
+        box-shadow:0 10px 30px rgba(0,0,0,0.4);
+    }
+
+    .chart-box h3{
+        font-size:15px;
+        font-weight:600;
+        margin-bottom:10px;
+        color:#e2e8f0;
+    }
+
+    canvas{
+        height:260px !important;
+    }
+
+    /* TABLE */
+    table{
+        width:100%;
+        margin-top:20px;
+        border-collapse:collapse;
+        background:#0f172a;
+    }
+
+    th, td{
+        padding:10px;
+    }
+
+    th{
+        color:#94a3b8;
+    }
+
+    tr{
+        border-bottom:1px solid #1e293b;
+    }
+    </style>
+
+    <!-- GLOBAL CHART FIX -->
+    <script>
+    Chart.defaults.color = "#cbd5f5";
+
+    Chart.defaults.font.family = "Inter, sans-serif";
+    Chart.defaults.font.size = 13;
+    Chart.defaults.font.weight = "500";
+
+    Chart.defaults.plugins.legend.labels.color = "#cbd5f5";
+    Chart.defaults.plugins.legend.labels.boxWidth = 12;
+
+    Chart.defaults.plugins.tooltip.backgroundColor = "#0f172a";
+    Chart.defaults.plugins.tooltip.titleColor = "#ffffff";
+    Chart.defaults.plugins.tooltip.bodyColor = "#cbd5f5";
+    Chart.defaults.plugins.tooltip.borderColor = "#1e293b";
+    Chart.defaults.plugins.tooltip.borderWidth = 1;
+
+    Chart.defaults.scale.grid.color = "rgba(255,255,255,0.06)";
+    Chart.defaults.scale.ticks.color = "#94a3b8";
+    </script>
+
+</head>
+
+<body>
+
+<div class="sidebar">
+    <div class="logo">Advanced Result Analytics suite</div>
+
+    <div class="nav">
+        <a href="/">Dashboard</a>
+        <a href="/subject/">Subject</a>
+        <a href="/category/">Category</a>
+        <a href="/branch/">Branch</a>
+        <a href="/quota/">Quota</a>
+        <a href="/backlog/">Backlog</a>
+         <a href="/upload/">Upload data</a>
+    </div>
+</div>
+
+<div class="main">
+
+
+    {% block content %}{% endblock %}
+
+</div>
+
+</body>
+</html>

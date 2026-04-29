@@ -1,0 +1,243 @@
+{% extends 'base.html' %}
+{% block content %}
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+<style>
+body{background:#020817;color:#e2e8f0;}
+
+h2{margin-bottom:15px;}
+
+.filter-bar{
+    display:flex;
+    gap:10px;
+    margin-bottom:20px;
+}
+
+.filter-bar select{
+    padding:8px;
+    border-radius:6px;
+    background:#1e293b;
+    color:white;
+}
+
+.filter-bar button{
+    padding:8px 14px;
+    background:#2563eb;
+    color:white;
+    border:none;
+    border-radius:6px;
+}
+
+.grid-2{
+    display:grid;
+    grid-template-columns:1fr 1fr;
+    gap:20px;
+}
+
+.chart-box{
+    background:#0f172a;
+    padding:15px;
+    border-radius:10px;
+}
+
+.chart-desc{
+    margin-top:10px;
+    font-size:13px;
+    color:#94a3b8;
+}
+
+table{
+    width:100%;
+    margin-top:20px;
+    background:#0f172a;
+    border-collapse:collapse;
+}
+
+th,td{
+    padding:8px;
+}
+
+th{color:#94a3b8;}
+tr{border-bottom:1px solid #1e293b;}
+</style>
+
+<h2>📊 Category Analysis</h2>
+<div style="display:flex; justify-content:flex-end; margin-bottom:15px;">
+    <a href="/download-report/?type=category&year={{request.GET.year}}&sem={{request.GET.sem}}&branch={{request.GET.branch}}">
+        <button class="btn">Download Report</button>
+    </a>
+</div>
+<!-- FILTERS -->
+<form method="GET" class="filter-bar">
+
+    <select name="year">
+        <option value="">All Years</option>
+        {% for y in years %}
+        <option value="{{ y }}">{{ y }}</option>
+        {% endfor %}
+    </select>
+
+    <select name="sem">
+        <option value="">All Sem</option>
+        {% for s in sems %}
+        <option value="{{ s }}">Sem {{ s }}</option>
+        {% endfor %}
+    </select>
+
+    <select name="branch">
+        <option value="">All Branch</option>
+        {% for b in branches %}
+        <option value="{{ b }}">{{ b }}</option>
+        {% endfor %}
+    </select>
+
+    <select name="subject">
+        <option value="">All Subjects</option>
+        {% for sub in subjects %}
+        <option value="{{ sub }}">{{ sub }}</option>
+        {% endfor %}
+    </select>
+
+    <button type="submit">Apply</button>
+
+</form>
+
+<!-- CHARTS -->
+<div class="grid-2">
+
+<!-- DISTRIBUTION -->
+<div class="chart-box">
+    <h3>👥 Category Distribution</h3>
+    <canvas id="pieChart"></canvas>
+    <p class="chart-desc">
+        Shows number of students in each category. Useful for demographic analysis.
+    </p>
+</div>
+
+<!-- AVG -->
+<div class="chart-box">
+    <h3>📈 Average Score by Category</h3>
+    <canvas id="avgChart"></canvas>
+    <p class="chart-desc">
+        Compares average marks across categories to identify performance differences.
+    </p>
+</div>
+
+<!-- PASS VS BACKLOG -->
+<div class="chart-box">
+    <h3>⚖️ Pass vs Backlog %</h3>
+    <canvas id="pbChart"></canvas>
+    <p class="chart-desc">
+        Shows pass percentage and backlog percentage for each category.
+        Helps identify which group struggles more academically.
+    </p>
+</div>
+
+</div>
+
+<!-- STUDENTS -->
+<h3>Students</h3>
+
+<table>
+<tr>
+<th>USN</th>
+<th>Name</th>
+<th>Branch</th>
+<th>Category</th>
+<th>Quota</th>
+<th>Avg</th>
+<th>Backlogs</th>
+</tr>
+
+{% for s in students %}
+<tr>
+<td>{{ s.student__usn }}</td>
+<td>{{ s.student__name }}</td>
+<td>{{ s.student__branch }}</td>
+<td>{{ s.student__actual_category }}</td>
+<td>{{ s.student__admission_quota }}</td>
+<td>{{ s.avg|floatformat:1 }}</td>
+<td>{{ s.backlog }}</td>
+</tr>
+{% empty %}
+<tr><td colspan="7">No Data Found</td></tr>
+{% endfor %}
+</table>
+
+<!-- DATA -->
+<script id="chart-data" type="application/json">
+{
+    "labels": {{ labels|safe }},
+    "counts": {{ counts|safe }},
+    "avg": {{ avg_scores|safe }},
+    "pass": {{ pass_rates|safe }},
+    "backlog": {{ backlog_rates|safe }}
+}
+</script>
+
+<script>
+const data = JSON.parse(document.getElementById("chart-data").textContent);
+
+// COMMON OPTIONS
+function getOptions(title, xLabel, yLabel){
+    return {
+        responsive:true,
+        plugins:{title:{display:true,text:title}},
+        scales:{
+            x:{title:{display:true,text:xLabel}},
+            y:{beginAtZero:true,title:{display:true,text:yLabel}}
+        }
+    };
+}
+
+// PIE
+new Chart(pieChart,{
+    type:'doughnut',
+    data:{
+        labels:data.labels,
+        datasets:[{
+            label:'Students',
+            data:data.counts,
+            backgroundColor:['#3b82f6','#10b981','#f59e0b','#ef4444','#8b5cf6']
+        }]
+    }
+});
+
+// AVG
+new Chart(avgChart,{
+    type:'bar',
+    data:{
+        labels:data.labels,
+        datasets:[{
+            label:'Average Marks',
+            data:data.avg,
+            backgroundColor:'#10b981'
+        }]
+    },
+    options:getOptions('Average Score by Category','Category','Marks')
+});
+
+// PASS VS BACKLOG
+new Chart(pbChart,{
+    type:'bar',
+    data:{
+        labels:data.labels,
+        datasets:[
+            {
+                label:'Pass %',
+                data:data.pass,
+                backgroundColor:'#3b82f6'
+            },
+            {
+                label:'Backlog %',
+                data:data.backlog,
+                backgroundColor:'#ef4444'
+            }
+        ]
+    },
+    options:getOptions('Pass vs Backlog','Category','Percentage')
+});
+</script>
+
+{% endblock %}

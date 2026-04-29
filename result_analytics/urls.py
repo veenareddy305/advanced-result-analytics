@@ -1,13 +1,10 @@
 from django.contrib import admin
 from django.urls import path, include
-from analytics.views import DashboardView
+from django.contrib.auth import views as auth_views
 
 urlpatterns = [
     path('admin/', admin.site.urls),
-
-    # Home → dashboard
-    path('', DashboardView.as_view(), name='home'),
-
-    # API routes
-    path('api/', include('analytics.urls')),
+    path('', include('analytics.urls')),
+    path('login/', auth_views.LoginView.as_view(template_name='login.html'), name='login'),
+    path('logout/', auth_views.LogoutView.as_view(), name='logout'),
 ]

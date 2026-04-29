@@ -1,0 +1,231 @@
+{% extends 'base.html' %}
+{% block content %}
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+<style>
+body{background:#020817;color:#e2e8f0;}
+
+h2{margin-bottom:15px;}
+
+form{
+    display:flex;
+    gap:10px;
+    margin-bottom:20px;
+}
+
+select,input,button{
+    padding:8px;
+    border-radius:6px;
+    border:none;
+    background:#1e293b;
+    color:white;
+}
+
+button{background:#2563eb;}
+
+.grid-4{
+    display:grid;
+    grid-template-columns:repeat(4,1fr);
+    gap:15px;
+    margin-bottom:20px;
+}
+
+.card{
+    background:#0f172a;
+    padding:15px;
+    border-radius:10px;
+    text-align:center;
+}
+
+.grid-2{
+    display:grid;
+    grid-template-columns:1fr 1fr;
+    gap:20px;
+}
+
+.chart-box{
+    background:#0f172a;
+    padding:15px;
+    border-radius:10px;
+}
+
+.chart-desc{
+    margin-top:10px;
+    font-size:13px;
+    color:#94a3b8;
+}
+
+table{
+    width:100%;
+    margin-top:20px;
+    border-collapse:collapse;
+    background:#0f172a;
+}
+
+th,td{padding:8px;}
+th{color:#94a3b8;}
+tr{border-bottom:1px solid #1e293b;}
+</style>
+
+<h2>📉 Backlog Analysis</h2>
+<div style="display:flex; justify-content:flex-end; margin-bottom:15px;">
+    <a href="/download-backlog-report/?year={{request.GET.year}}&sem={{request.GET.sem}}">
+        <button class="btn btn-download">
+            Download Report
+        </button>
+    </a>
+</div>
+<!-- ✅ ONLY THIS PART CHANGED -->
+<form method="GET">
+
+<select name="year">
+    <option value="">All Years</option>
+    {% for y in years %}
+        <option value="{{ y }}" {% if request.GET.year == y|stringformat:"s" %}selected{% endif %}>
+            {{ y }}
+        </option>
+    {% endfor %}
+</select>
+
+<select name="sem">
+    <option value="">All Sem</option>
+    {% for s in sems %}
+        <option value="{{ s }}" {% if request.GET.sem == s|stringformat:"s" %}selected{% endif %}>
+            Sem {{ s }}
+        </option>
+    {% endfor %}
+</select>
+
+<select name="branch">
+    <option value="">All Branch</option>
+    {% for b in branches %}
+    <option value="{{ b }}">{{ b }}</option>
+    {% endfor %}
+</select>
+
+<select name="subject">
+    <option value="">All Subjects</option>
+    {% for s in subjects %}
+    <option value="{{ s }}">{{ s }}</option>
+    {% endfor %}
+</select>
+
+<button>Apply</button>
+</form>
+
+<!-- KPI -->
+<div class="grid-4">
+    <div class="card">Total Backlogs<br><h2>{{ total_backlogs }}</h2></div>
+    <div class="card">Students Affected<br><h2>{{ students_with_backlog }}</h2></div>
+    <div class="card">Max Backlogs<br><h2>{{ max_backlog }}</h2></div>
+    <div class="card">Average Backlogs<br><h2>{{ avg_backlog }}</h2></div>
+</div>
+
+<div class="grid-2">
+
+<!-- DISTRIBUTION -->
+<div class="chart-box">
+    <h3>📊 Backlog Distribution</h3>
+    <canvas id="distChart"></canvas>
+    <p class="chart-desc">
+        Shows how many students have 1, 2, 3, or more backlogs.
+        Helps identify severity of academic issues.
+    </p>
+</div>
+
+<!-- BRANCH -->
+<div class="chart-box">
+    <h3>🏫 Backlog % by Branch</h3>
+    <canvas id="branchChart"></canvas>
+    <p class="chart-desc">
+        Displays backlog percentage across branches.
+        Helps identify academically weaker branches.
+    </p>
+</div>
+
+<!-- RISK -->
+<div class="chart-box">
+    <h3>⚠️ Student Risk Levels</h3>
+    <canvas id="riskChart"></canvas>
+    <p class="chart-desc">
+        Categorizes students into low, medium, and high risk based on backlog count.
+        Useful for intervention planning.
+    </p>
+</div>
+
+<!-- SUBJECT -->
+<div class="chart-box">
+    <h3>📚 Subject-wise Fail Count</h3>
+    <canvas id="subChart"></canvas>
+    <p class="chart-desc">
+        Shows which subjects contribute most to backlogs.
+        Helps identify problematic subjects.
+    </p>
+</div>
+
+</div>
+
+<h3>Students with Backlogs</h3>
+
+<table>
+<tr>
+<th>USN</th>
+<th>Name</th>
+<th>Branch</th>
+<th>Category</th>
+<th>Quota</th>
+<th>Avg</th>
+<th>Backlogs</th>
+</tr>
+
+{% for s in students %}
+<tr>
+<td>{{ s.student__usn }}</td>
+<td>{{ s.student__name }}</td>
+<td>{{ s.student__branch }}</td>
+<td>{{ s.student__actual_category }}</td>
+<td>{{ s.student__admission_quota }}</td>
+<td>{{ s.avg|floatformat:1 }}</td>
+<td>{{ s.backlog }}</td>
+</tr>
+{% endfor %}
+</table>
+
+<!-- DATA + CHART JS (UNCHANGED) -->
+<script id="dist_labels" type="application/json">{{ dist_labels|safe }}</script>
+<script id="dist_data" type="application/json">{{ dist_data|safe }}</script>
+
+<script id="branch_labels" type="application/json">{{ branch_labels|safe }}</script>
+<script id="branch_rates" type="application/json">{{ branch_rates|safe }}</script>
+
+<script id="risk_labels" type="application/json">{{ risk_labels|safe }}</script>
+<script id="risk_data" type="application/json">{{ risk_data|safe }}</script>
+
+<script id="sub_labels" type="application/json">{{ sub_labels|safe }}</script>
+<script id="sub_data" type="application/json">{{ sub_data|safe }}</script>
+
+<script>
+function get(id){ return JSON.parse(document.getElementById(id).textContent); }
+
+function getOptions(title, xLabel, yLabel){
+    return {
+        responsive:true,
+        plugins:{title:{display:true,text:title}},
+        scales:{
+            x:{title:{display:true,text:xLabel}},
+            y:{beginAtZero:true,title:{display:true,text:yLabel}}
+        }
+    };
+}
+
+new Chart(distChart,{type:'bar',data:{labels:get('dist_labels'),datasets:[{label:'Number of Students',data:get('dist_data'),backgroundColor:'#3b82f6'}]},options:getOptions('Backlog Distribution','Backlog Count','Students')});
+
+new Chart(branchChart,{type:'bar',data:{labels:get('branch_labels'),datasets:[{label:'Backlog %',data:get('branch_rates'),backgroundColor:'#ef4444'}]},options:getOptions('Backlog Percentage by Branch','Branch','Percentage')});
+
+new Chart(riskChart,{type:'bar',data:{labels:get('risk_labels'),datasets:[{label:'Students',data:get('risk_data'),backgroundColor:'#f59e0b'}]},options:getOptions('Student Risk Distribution','Risk Level','Students')});
+
+new Chart(subChart,{type:'bar',data:{labels:get('sub_labels'),datasets:[{label:'Fail Count',data:get('sub_data'),backgroundColor:'#ef4444'}]},options:getOptions('Subject-wise Fail Count','Subjects','Fails')});
+</script>
+
+{% endblock %}

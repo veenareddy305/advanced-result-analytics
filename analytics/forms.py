@@ -1,200 +1,171 @@
-import io
-import pandas as pd
 from django import forms
-from django.core.exceptions import ValidationError
+from .models import Student, Subject
+class UploadFileForm(forms.Form):
+    file = forms.FileField(
+        label="Upload CSV or Excel File",
+        widget=forms.ClearableFileInput(attrs={'class': 'form-control'})
+    )
+    
 
-from .models import BRANCH_CHOICES, SEMESTER_CHOICES
+    def clean_file(self):
+        file = self.cleaned_data.get('file')
 
-from django import forms
-from .models import Result
+        if not file:
+            raise forms.ValidationError("No file selected")
 
-class ManualEntryForm(forms.ModelForm):
-    class Meta:
-        model = Result
-        fields = [
-            'usn', 'student_name', 'branch', 'semester',
-            'subject', 'marks', 'academic_year'
-        ]
+        if not file.name.endswith(('.csv', '.xlsx', '.xls')):
+            raise forms.ValidationError("Only CSV or Excel files allowed")
 
-# Columns that MUST be present in the uploaded CSV
-REQUIRED_COLUMNS = {'usn', 'subject', 'marks'}
+        if file.size > 5 * 1024 * 1024:
+            raise forms.ValidationError("File too large (max 5MB)")
 
-# All recognised column names (case-insensitive mapping)
-COLUMN_ALIASES = {
-    'usn':           'usn',
-    'student_usn':   'usn',
-    'roll_number':   'usn',
-    'roll no':       'usn',
-    'name':          'student_name',
-    'student_name':  'student_name',
-    'branch':        'branch',
-    'dept':          'branch',
-    'department':    'branch',
-    'semester':      'semester',
-    'sem':           'semester',
-    'subject':       'subject',
-    'subject_name':  'subject',
-    'subject_code':  'subject_code',
-    'code':          'subject_code',
-    'marks':         'marks',
-    'mark':          'marks',
-    'score':         'marks',
-    'max_marks':     'max_marks',
-    'maximum':       'max_marks',
-    'exam_type':     'exam_type',
-    'academic_year': 'academic_year',
-}
+        return file
 
 
-class CSVUploadForm(forms.Form):
-    """
-    CO2 – Validated CSV upload form.
-    Accepts a .csv file, normalises headers, checks required columns,
-    and returns a cleaned DataFrame via self.get_dataframe().
-    """
-    branch   = forms.ChoiceField(
-        choices=[('', '— Select Branch —')] + BRANCH_CHOICES,
+# =========================
+# 2. DASHBOARD FILTER FORM
+# =========================
+class DashboardFilterForm(forms.Form):
+
+    year = forms.IntegerField(
         required=False,
-        widget=forms.Select(attrs={'class': 'form-select'})
+        widget=forms.NumberInput(attrs={'class': 'form-control'})
     )
-    semester = forms.ChoiceField(
-        choices=[('', '— Select Semester —')] + SEMESTER_CHOICES,
+
+    semester = forms.IntegerField(
         required=False,
-        widget=forms.Select(attrs={'class': 'form-select'})
+        widget=forms.NumberInput(attrs={'class': 'form-control'})
     )
-    csv_file = forms.FileField(
-        label='CSV File',
-        widget=forms.ClearableFileInput(attrs={'class': 'form-control', 'accept': '.csv'})
-    )
-    overwrite_existing = forms.BooleanField(
+
+    branch = forms.CharField(
         required=False,
-        initial=False,
-        label='Replace existing records for same USN + Subject',
-        widget=forms.CheckboxInput(attrs={'class': 'form-check-input'})
+        widget=forms.TextInput(attrs={'class': 'form-control'})
     )
 
-    def clean_csv_file(self):
-        csv_file = self.cleaned_data['csv_file']
-
-        # --- Extension check ---
-        if not csv_file.name.lower().endswith('.csv'):
-            raise ValidationError("Only .csv files are accepted.")
-
-        # --- Size check (5 MB) ---
-        if csv_file.size > 5 * 1024 * 1024:
-            raise ValidationError("File too large. Maximum size is 5 MB.")
-
-        # --- Try to parse ---
-        try:
-            content = csv_file.read().decode('utf-8-sig')  # handle BOM
-            csv_file.seek(0)
-            df = pd.read_csv(io.StringIO(content))
-        except Exception as e:
-            raise ValidationError(f"Cannot parse CSV: {e}")
-
-        if df.empty:
-            raise ValidationError("The uploaded CSV has no data rows.")
-
-        # --- Normalise column names ---
-        df.columns = [c.strip().lower().replace(' ', '_') for c in df.columns]
-        rename_map = {}
-        for col in df.columns:
-            normalised = col.replace('_', ' ').replace('-', ' ')
-            if col in COLUMN_ALIASES:
-                rename_map[col] = COLUMN_ALIASES[col]
-            elif normalised in COLUMN_ALIASES:
-                rename_map[col] = COLUMN_ALIASES[normalised]
-        df.rename(columns=rename_map, inplace=True)
-
-        # --- Required column check ---
-        missing = REQUIRED_COLUMNS - set(df.columns)
-        if missing:
-            raise ValidationError(
-                f"CSV is missing required columns: {', '.join(sorted(missing))}. "
-                f"Found columns: {', '.join(df.columns.tolist())}"
-            )
-
-        # --- Marks validation ---
-        # --- STRICT Marks validation (NO NaN allowed) ---
-        marks_converted = pd.to_numeric(df['marks'], errors='coerce')
-
-        # ❌ Case 1: non-numeric (abc, %, etc.)
-        invalid_format = marks_converted.isnull()
-        if invalid_format.any():
-            bad = df.loc[invalid_format].head(3)
-            errors = [
-                f"Row {i+2}: USN {r['usn']} → invalid marks '{r['marks']}'"
-                for i, r in bad.iterrows()
-            ]
-            raise ValidationError(" ; ".join(errors))
-
-        # ❌ Case 2: out of range
-        invalid_range = (marks_converted < 0) | (marks_converted > 100)
-        if invalid_range.any():
-            bad = df.loc[invalid_range].head(3)
-            errors = [
-                f"Row {i+2}: USN {r['usn']} → marks {r['marks']} out of range"
-                for i, r in bad.iterrows()
-            ]
-            raise ValidationError(" ; ".join(errors))
-
-        # ✅ assign only after validation passes
-        df['marks'] = marks_converted
-
-        # --- USN format check (warn, don't reject) ---
-        df['usn'] = df['usn'].astype(str).str.strip().str.upper()
-
-        # Store cleaned DF for use in the view
-        self._cleaned_df = df
-        return csv_file
-
-    def get_dataframe(self):
-        """Return the validated, normalised DataFrame."""
-        return getattr(self, '_cleaned_df', None)
-
-
-class ResultFilterForm(forms.Form):
-    """
-    CO3 – Dashboard filter form.
-    All fields optional; empty = show all.
-    """
-    branch   = forms.ChoiceField(
-        choices=[('', 'All Branches')] + BRANCH_CHOICES,
+    section = forms.CharField(
         required=False,
-        widget=forms.Select(attrs={'class': 'form-select form-select-sm'})
+        widget=forms.TextInput(attrs={'class': 'form-control'})
     )
-    semester = forms.ChoiceField(
-        choices=[('', 'All Semesters')] + SEMESTER_CHOICES,
+
+
+# =========================
+# 3. SUBJECT ANALYSIS FORM
+# =========================
+class SubjectFilterForm(forms.Form):
+
+    year = forms.IntegerField(
+        required=True,
+        widget=forms.NumberInput(attrs={'class': 'form-control'})
+    )
+
+    subject_code = forms.CharField(
+        required=True,
+        widget=forms.TextInput(attrs={'class': 'form-control'})
+    )
+
+    branch = forms.CharField(
         required=False,
-        widget=forms.Select(attrs={'class': 'form-select form-select-sm'})
+        widget=forms.TextInput(attrs={'class': 'form-control'})
     )
-    subject  = forms.CharField(
+
+
+# =========================
+# 4. CATEGORY ANALYSIS FORM
+# =========================
+class CategoryFilterForm(forms.Form):
+
+    year = forms.IntegerField(
+        required=True,
+        widget=forms.NumberInput(attrs={'class': 'form-control'})
+    )
+
+    category = forms.ChoiceField(
         required=False,
-        widget=forms.TextInput(attrs={
-            'class': 'form-control form-control-sm',
-            'placeholder': 'Subject name…'
-        })
-    )
-    exam_type = forms.ChoiceField(
         choices=[
-            ('', 'All Exam Types'),
-            ('IA', 'Internal Assessment'),
-            ('SEE', 'Semester End Exam'),
+            ('', 'All'),
+            ('GM', 'GM'),
+            ('OBC', 'OBC'),
+            ('SC', 'SC'),
+            ('ST', 'ST'),
+            ('EWS', 'EWS')
         ],
-        required=False,
-        widget=forms.Select(attrs={'class': 'form-select form-select-sm'})
+        widget=forms.Select(attrs={'class': 'form-control'})
     )
-    academic_year = forms.CharField(
-        required=False,
-        widget=forms.TextInput(attrs={
-            'class': 'form-control form-control-sm',
-            'placeholder': 'e.g. 2024-25'
-        })
+
+
+# =========================
+# 5. BRANCH COMPARISON FORM
+# =========================
+class BranchCompareForm(forms.Form):
+
+    year = forms.IntegerField(
+        required=True,
+        widget=forms.NumberInput(attrs={'class': 'form-control'})
     )
-    search_usn = forms.CharField(
+
+    branches = forms.CharField(
+        required=True,
+        help_text="Enter branches separated by comma",
+        widget=forms.TextInput(attrs={'class': 'form-control'})
+    )
+
+    def clean_branches(self):
+        data = self.cleaned_data.get('branches')
+        branch_list = [b.strip().upper() for b in data.split(',') if b.strip()]
+
+        if len(branch_list) < 2:
+            raise forms.ValidationError("Enter at least 2 branches")
+
+        return branch_list
+
+
+# =========================
+# 6. CLASS (SECTION) FORM
+# =========================
+class ClassFilterForm(forms.Form):
+
+    year = forms.IntegerField(
+        required=True,
+        widget=forms.NumberInput(attrs={'class': 'form-control'})
+    )
+
+    semester = forms.IntegerField(
+        required=True,
+        widget=forms.NumberInput(attrs={'class': 'form-control'})
+    )
+
+    branch = forms.CharField(
+        required=True,
+        widget=forms.TextInput(attrs={'class': 'form-control'})
+    )
+
+    section = forms.CharField(
+        required=True,
+        widget=forms.TextInput(attrs={'class': 'form-control'})
+    )
+
+
+# =========================
+# 7. BACKLOG SEARCH FORM
+# =========================
+class BacklogSearchForm(forms.Form):
+
+    usn = forms.CharField(
         required=False,
-        widget=forms.TextInput(attrs={
-            'class': 'form-control form-control-sm',
-            'placeholder': 'Search USN…'
-        })
+        widget=forms.TextInput(attrs={'class': 'form-control'})
+    )
+
+    name = forms.CharField(
+        required=False,
+        widget=forms.TextInput(attrs={'class': 'form-control'})
+    )
+
+    subject = forms.CharField(
+        required=False,
+        widget=forms.TextInput(attrs={'class': 'form-control'})
+    )
+
+    branch = forms.CharField(
+        required=False,
+        widget=forms.TextInput(attrs={'class': 'form-control'})
     )

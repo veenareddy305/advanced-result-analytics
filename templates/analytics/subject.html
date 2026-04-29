@@ -1,0 +1,309 @@
+{% extends 'base.html' %}
+{% block content %}
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+<style>
+body{background:#020817;color:#e2e8f0;}
+
+h2{margin-bottom:15px;}
+
+form{
+    display:flex;
+    gap:10px;
+    margin-bottom:20px;
+}
+
+select,button{
+    padding:8px;
+    border-radius:6px;
+    border:none;
+    background:#1e293b;
+    color:white;
+}
+
+button{
+    background:#2563eb;
+}
+
+.grid-4{
+    display:grid;
+    grid-template-columns:repeat(4,1fr);
+    gap:35px;
+    margin-bottom:30px;
+}
+
+.card{
+    background:#0f172a;
+    padding:35px;
+    border-radius:30px;
+    text-align:center;
+}
+
+.grid-2{
+    display:grid;
+    grid-template-columns:1fr 1fr;
+    gap:30px;
+}
+
+.chart-box{
+    background:#0f172a;
+    padding:35px;
+    border-radius:30px;
+}
+
+.chart-desc{
+    margin-top:30px;
+    font-size:33px;
+    color:#94a3b8;
+}
+
+table{
+    width:100%;
+    margin-top:30px;
+    border-collapse:collapse;
+    background:#0f172a;
+}
+
+th,td{
+    padding:30px;
+}
+
+th{color:#94a3b8;}
+tr{border-bottom:1px solid #1e293b;}
+</style>
+
+<h2>📊 Subject-wise Analysis</h2>
+
+<div style="display:flex; justify-content:flex-end; margin-bottom:15px;">
+    <a href="/download-report/?type=subject&year={{request.GET.year}}&sem={{request.GET.sem}}&branch={{request.GET.branch}}">
+        <button class="btn">Download Report</button>
+    </a>
+</div>
+
+<!-- FILTERS -->
+<form method="GET">
+    <select name="year">
+        <option value="">All Years</option>
+        {% for y in years %}<option value="{{y}}">{{y}}</option>{% endfor %}
+    </select>
+
+    <select name="sem">
+        <option value="">All Sem</option>
+        {% for s in sems %}<option value="{{s}}">{{s}}</option>{% endfor %}
+    </select>
+
+    <select name="branch">
+        <option value="">All Branch</option>
+        {% for b in branches %}<option value="{{b}}">{{b}}</option>{% endfor %}
+    </select>
+
+    <select name="subject">
+        <option value="">All Subjects</option>
+        {% for s in subjects %}<option value="{{s}}">{{s}}</option>{% endfor %}
+    </select>
+
+    <button>Apply</button>
+</form>
+
+<!-- KPI -->
+<div class="grid-4">
+    <div class="card"><h2>{{ total_students }}</h2><small>Total Students</small></div>
+    <div class="card"><h2>{{ pass_pct }}%</h2><small>Pass %</small></div>
+    <div class="card"><h2>{{ avg_score }}</h2><small>Average Marks</small></div>
+    <div class="card"><h2>{{ fail_count }}</h2><small>Failures</small></div>
+</div>
+
+<!-- CHARTS -->
+<div class="grid-2">
+
+<!-- AVG -->
+<div class="chart-box">
+    <h3>📈 Average Marks per Subject</h3>
+    <canvas id="avgChart"></canvas>
+</div>
+
+<!-- PASS -->
+<div class="chart-box">
+    <h3>✅ Pass % per Subject</h3>
+    <canvas id="passChart"></canvas>
+</div>
+
+<!-- FAIL -->
+<div class="chart-box">
+    <h3>❌ Fail % per Subject</h3>
+    <canvas id="failChart"></canvas>
+</div>
+
+<!-- HARD -->
+<div class="chart-box">
+    <h3>🔥 Top Hard Subjects</h3>
+    <canvas id="hardChart"></canvas>
+</div>
+
+<!-- GRADE -->
+<div class="chart-box">
+    <h3>🎓 Grade Distribution</h3>
+    <canvas id="gradeChart"></canvas>
+</div>
+
+</div>
+
+<!-- ✅ ONLY ADD THIS TABLE (NO REMOVAL) -->
+<h3>📊 Subject Analysis (Clean Data)</h3>
+
+<table>
+<tr>
+<th>Code</th>
+<th>Name</th>
+<th>Total</th>
+<th>Pass %</th>
+<th>Fail %</th>
+<th>50-59</th>
+<th>60-69</th>
+<th>>=70</th>
+</tr>
+
+{% for s in analysis %}
+<tr>
+<td>{{s.code}}</td>
+<td>{{s.name}}</td>
+<td>{{s.total}}</td>
+<td>{{s.pass_pct}}</td>
+<td>{{s.fail_pct}}</td>
+<td>{{s.c50}}</td>
+<td>{{s.c60}}</td>
+<td>{{s.c70}}</td>
+</tr>
+{% endfor %}
+</table>
+
+<!-- STUDENTS -->
+<h3>All Students</h3>
+
+<table>
+<tr>
+<th>USN</th>
+<th>Name</th>
+<th>Branch</th>
+<th>Category</th>
+<th>Quota</th>
+<th>Avg</th>
+</tr>
+
+{% for s in students %}
+<tr>
+<td>{{ s.student__usn }}</td>
+<td>{{ s.student__name }}</td>
+<td>{{ s.student__branch }}</td>
+<td>{{ s.student__actual_category }}</td>
+<td>{{ s.student__admission_quota }}</td>
+<td>{{ s.avg|floatformat:1 }}</td>
+</tr>
+{% empty %}
+<tr><td colspan="6">No Data Found</td></tr>
+{% endfor %}
+</table>
+
+<!-- JS DATA -->
+<script>
+
+// 🔥 ORIGINAL DATA (UNCHANGED)
+const labels = JSON.parse('{{ labels|escapejs }}');
+const avg = JSON.parse('{{ avg_marks|escapejs }}');
+const pass = JSON.parse('{{ pass_rates|escapejs }}');
+const fail = JSON.parse('{{ fail_rates|escapejs }}');
+const hardL = JSON.parse('{{ hard_labels|escapejs }}');
+const hardD = JSON.parse('{{ hard_data|escapejs }}');
+const gradeL = JSON.parse('{{ grade_labels|escapejs }}');
+const gradeD = JSON.parse('{{ grade_counts|escapejs }}');
+
+// 🔥 FIX → LIMIT DATA FOR CLEAN CHART
+const maxItems = 10;
+const labels10 = labels.slice(0, maxItems);
+const avg10 = avg.slice(0, maxItems);
+const pass10 = pass.slice(0, maxItems);
+const fail10 = fail.slice(0, maxItems);
+
+// COMMON OPTIONS
+function getOptions(title, xLabel, yLabel){
+    return {
+        responsive:true,
+        plugins:{title:{display:true,text:title}},
+        scales:{
+            x:{title:{display:true,text:xLabel}},
+            y:{beginAtZero:true,title:{display:true,text:yLabel}}
+        }
+    };
+}
+
+// AVG
+new Chart(avgChart,{
+    type:'bar',
+    data:{
+        labels:labels10,
+        datasets:[{
+            label:'Average Marks',
+            data:avg10,
+            backgroundColor:'#3b82f6'
+        }]
+    },
+    options:getOptions('Average Marks per Subject','Subjects','Marks')
+});
+
+// PASS
+new Chart(passChart,{
+    type:'bar',
+    data:{
+        labels:labels10,
+        datasets:[{
+            label:'Pass %',
+            data:pass10,
+            backgroundColor:'#10b981'
+        }]
+    },
+    options:getOptions('Pass Percentage (Top 10)','Subjects','%')
+});
+
+// FAIL
+new Chart(failChart,{
+    type:'bar',
+    data:{
+        labels:labels10,
+        datasets:[{
+            label:'Fail %',
+            data:fail10,
+            backgroundColor:'#ef4444'
+        }]
+    },
+    options:getOptions('Failure Percentage (Top 10)','Subjects','%')
+});
+
+// HARD
+new Chart(hardChart,{
+    type:'bar',
+    data:{
+        labels:hardL,
+        datasets:[{
+            label:'Fail %',
+            data:hardD,
+            backgroundColor:'#f59e0b'
+        }]
+    }
+});
+
+// GRADE
+new Chart(gradeChart,{
+    type:'doughnut',
+    data:{
+        labels:gradeL,
+        datasets:[{
+            data:gradeD,
+            backgroundColor:['#10b981','#3b82f6','#f59e0b','#ef4444']
+        }]
+    }
+});
+
+</script>
+
+{% endblock %}

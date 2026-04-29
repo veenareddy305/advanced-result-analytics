@@ -1,0 +1,297 @@
+{% extends 'base.html' %}
+{% block content %}
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+<style>
+.title{font-size:28px;font-weight:600;margin-bottom:5px;}
+.subtitle{color:#94a3b8;margin-bottom:20px;}
+
+.filters{display:flex;gap:10px;margin-bottom:20px;}
+.filters input,
+.filters select{
+    padding:8px;border-radius:8px;border:none;
+    background:#1e293b;color:white;
+}
+.filters button{
+    background:#2563eb;color:white;
+    border:none;padding:8px 14px;border-radius:8px;
+}
+
+/* KPI */
+.kpi-grid{
+    display:grid;
+    grid-template-columns:repeat(4,1fr);
+    gap:20px;margin-bottom:35px;
+}
+.kpi{
+    background:#0f172a;
+    border-radius:34px;
+    padding:30px;
+    border:1px solid rgba(255,255,255,0.05);
+}
+.kpi h4{font-size:13px;color:#94a3b8;}
+.kpi h2{font-size:30px;margin-top:5px;}
+
+/* GRID */
+.grid-2{
+    display:grid;
+    grid-template-columns:1fr 1fr;
+    gap:30px;
+}
+
+/* CHART BOX */
+.chart-box{
+    background:linear-gradient(145deg,#0f172a,#020617);
+    border:1px solid rgba(255,255,255,0.05);
+    border-radius:36px;
+    padding:38px;
+    box-shadow:0 10px 30px rgba(0,0,0,0.4);
+}
+
+.chart-box h3{
+    font-size:20px;
+    font-weight:700;
+    color:#f9f4f1;
+    margin-bottom:32px;
+}
+
+.chart-desc{
+    margin-top:14px;
+    font-size:17px;
+    font-weight:600;
+    color:#e2e8f0;
+    line-height:1.6;
+}
+
+/* TABLE */
+.table-box{
+    margin-top:30px;
+    background:#0f172a;
+    padding:35px;
+    border-radius:32px;
+}
+table{width:100%;border-collapse:collapse;}
+th,td{padding:10px;}
+th{color:#94a3b8;text-align:left;}
+tr{border-bottom:1px solid #1e293b;}
+
+.badge-pass{background:#064e3b;color:#34d399;padding:3px 8px;border-radius:6px;}
+.badge-fail{background:#7f1d1d;color:#f87171;padding:3px 8px;border-radius:6px;}
+</style>
+
+<div class="title">📊 Performance Overview</div>
+<div class="subtitle">College-wide academic performance</div>
+
+<div style="display:flex; justify-content:flex-end; margin-bottom:15px;">
+    <<a href="/download-report/?type=dashboard&year={{request.GET.year}}&sem={{request.GET.sem}}&branch={{request.GET.branch}}">
+        <button class="btn">Download Report</button>
+    </a>
+</div>
+
+<form method="GET" class="filters">
+
+<select name="year">
+    <option value="">All Years</option>
+    {% for y in years %}
+        <option value="{{y}}" {% if request.GET.year == y|stringformat:"s" %}selected{% endif %}>{{y}}</option>
+    {% endfor %}
+</select>
+
+<select name="sem">
+    <option value="">All Sem</option>
+    {% for s in sems %}
+        <option value="{{s}}" {% if request.GET.sem == s|stringformat:"s" %}selected{% endif %}>Sem {{s}}</option>
+    {% endfor %}
+</select>
+
+<select name="branch">
+    <option value="">All Branch</option>
+    {% for b in branches %}
+        <option value="{{b}}" {% if request.GET.branch == b %}selected{% endif %}>{{b}}</option>
+    {% endfor %}
+</select>
+
+<input name="name" placeholder="Name" value="{{ request.GET.name }}">
+
+<button>Apply</button>
+
+</form>
+
+<!-- KPI -->
+<div class="kpi-grid">
+    <div class="kpi"><h4>Total Students</h4><h2>{{ total }}</h2></div>
+    <div class="kpi"><h4>Pass Rate</h4><h2>{{ pass_pct }}%</h2></div>
+    <div class="kpi"><h4>Avg Score</h4><h2>{{ avg }}</h2></div>
+    <div class="kpi"><h4>Backlogs</h4><h2>{{ backlog_count }}</h2></div>
+</div>
+
+<!-- CHARTS -->
+<div class="grid-2">
+
+<div class="chart-box">
+    <h3>Semester Trend</h3>
+    <canvas id="trendChart"></canvas>
+    <p class="chart-desc">Shows how average marks change across semesters</p>
+</div>
+
+<div class="chart-box">
+    <h3>Subject Difficulty</h3>
+    <canvas id="subjectChart"></canvas>
+    <p class="chart-desc">Subjects with highest failures</p>
+</div>
+
+<div class="chart-box">
+    <h3>Pass vs Fail</h3>
+    <canvas id="pfChart"></canvas>
+    <p class="chart-desc">Overall pass percentage</p>
+</div>
+
+<div class="chart-box">
+    <h3>Student Performance</h3>
+    <canvas id="sgpaChart"></canvas>
+</div>
+
+<div class="chart-box">
+    <h3>Branch Performance</h3>
+    <canvas id="branchChart"></canvas>
+</div>
+
+<div class="chart-box">
+    <h3>Category Distribution</h3>
+    <canvas id="categoryChart"></canvas>
+</div>
+
+</div>
+
+<!-- TABLE -->
+<div class="table-box">
+<h3>All Students</h3>
+
+<table>
+<tr>
+<th>USN</th><th>Name</th><th>Branch</th>
+<th>Avg</th><th>Result</th>
+</tr>
+
+{% for s in students %}
+<tr>
+<td>{{ s.student__usn }}</td>
+<td>{{ s.student__name }}</td>
+<td>{{ s.student__branch }}</td>
+<td>{{ s.avg|floatformat:1 }}</td>
+<td>
+{% if s.backlog > 0 %}
+<span class="badge-fail">Fail</span>
+{% else %}
+<span class="badge-pass">Pass</span>
+{% endif %}
+</td>
+</tr>
+{% endfor %}
+</table>
+</div>
+
+<script>
+
+// GLOBAL STYLE
+Chart.defaults.color="#cbd5f5";
+Chart.defaults.font.family="Inter";
+Chart.defaults.scale.grid.color="rgba(255,255,255,0.05)";
+
+// DATA
+const trend = JSON.parse('{{ trend|escapejs }}');
+const sd = JSON.parse('{{ subject_difficulty|escapejs }}');
+const sgpa = JSON.parse('{{ sgpa_list|escapejs }}');
+const branch = JSON.parse('{{ branch_data|escapejs }}');
+const category = JSON.parse('{{ category_data|escapejs }}');
+
+const passVal = Number('{{ pass_pct }}');
+const failVal = 100 - passVal;
+
+// LINE
+new Chart(trendChart,{
+type:'line',
+data:{
+labels:trend.map(x=>"Sem "+x.semester),
+datasets:[{
+label:'Marks',
+data:trend.map(x=>x.avg),
+borderColor:'#3b82f6',
+backgroundColor:'rgba(59,130,246,0.2)',
+tension:0.4,
+fill:true
+}]
+}
+});
+
+// BAR
+new Chart(subjectChart,{
+type:'bar',
+data:{
+labels:sd.map(x=>x.subject__code),
+datasets:[{
+label:'Fails',
+data:sd.map(x=>x.fail_count),
+backgroundColor:'#ef4444',
+borderRadius:8
+}]
+}
+});
+
+// DONUT
+new Chart(pfChart,{
+type:'doughnut',
+data:{
+labels:['Pass','Fail'],
+datasets:[{
+data:[passVal,failVal],
+backgroundColor:['#10b981','#ef4444']
+}]
+},
+options:{cutout:'65%'}
+});
+
+// SGPA
+new Chart(sgpaChart,{
+type:'bar',
+data:{
+labels:sgpa.map(x=>x.student__name),
+datasets:[{
+label:'Marks',
+data:sgpa.map(x=>x.avg),
+backgroundColor:'#3b82f6',
+borderRadius:8
+}]
+}
+});
+
+// BRANCH
+new Chart(branchChart,{
+type:'bar',
+data:{
+labels:branch.map(x=>x.student__branch),
+datasets:[{
+label:'Average',
+data:branch.map(x=>x.avg),
+backgroundColor:'#22c55e',
+borderRadius:8
+}]
+}
+});
+
+// CATEGORY
+new Chart(categoryChart,{
+type:'pie',
+data:{
+labels:category.map(x=>x.student__actual_category),
+datasets:[{
+data:category.map(x=>x.count),
+backgroundColor:['#3b82f6','#10b981','#f59e0b','#ef4444']
+}]
+}
+});
+
+</script>
+
+{% endblock %}
